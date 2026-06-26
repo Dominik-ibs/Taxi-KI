@@ -1,3 +1,15 @@
+# Eigene Erweiterungen
+*.sqlite
+*.dbf
+*.prj
+*.sbn
+*.shp
+*.shp.xml
+*.sbx
+*.shx
+*.pdf
+*.csv
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
