@@ -143,8 +143,8 @@ for chunk_nr, df in enumerate(
     df[["trip_distance", "Duration"]] = scaler.fit_transform(df[["trip_distance", "Duration"]])
 
     df["time_of_day"] = np.sin(2 * np.pi * df["time_of_day"] / 86400)
-    df["day_of_week_sin"] = np.sin(2 * np.pi * df["day_of_week"] / 7)
-    df["month_sin"] = np.sin(2 * np.pi * df["month"] / 12)
+    df["day_of_week"] = np.sin(2 * np.pi * df["day_of_week"] / 7)
+    df["month"] = np.sin(2 * np.pi * df["month"] / 12)
 
     # =====================================================
     # 7. Daten speichern
