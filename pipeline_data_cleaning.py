@@ -131,7 +131,7 @@ for chunk_nr, df in enumerate(
     # 5. Datumszeilen entfernen
     # =====================================================
 
-    df = df.drop(columns=["tpep_pickup_datetime", "tpep_dropoff_datetime", "Avg_Speed"], axis=1)
+    df = df.drop(columns=["tpep_pickup_datetime", "tpep_dropoff_datetime", "Avg_Speed"])
 
     # =====================================================
     # 6. Daten speichern
