@@ -53,7 +53,7 @@ mode = "replace"
 # Chunkweise Verarbeitung
 # ==========================
 
-query = f"SELECT {COLUMNS} FROM {TABLE}"
+query = f"SELECT {COLUMNS} FROM {TABLE} where trip_distance BETWEEN 0.1 and 40 and pulocationid BETWEEN 1 and 263 and dolocationid BETWEEN 1, 263"
 
 for chunk_nr, df in enumerate(
     pd.read_sql_query(query, source_conn, parse_dates=PARSE_DATE_DICT, chunksize=CHUNKSIZE)
@@ -81,37 +81,8 @@ for chunk_nr, df in enumerate(
     # 2. Trip distance prüfen
     # =====================================================
 
-    df["Trip_distance"] = pd.to_numeric(
-        df["Trip_distance"],
-        errors="coerce"
-    )
-
     df = df[
-        df["Trip_distance"].notna()
-    ]
-
-    df = df[
-        (df["Trip_distance"] >= 0.1)
-        & (df["Trip_distance"] <= 40)
-    ]
-
-    # =====================================================
-    # 3. PU / DO Location prüfen
-    # =====================================================
-
-    df["PULocationID"] = pd.to_numeric(
-        df["PULocationID"],
-        errors="coerce"
-    )
-
-    df["DOLocationID"] = pd.to_numeric(
-        df["DOLocationID"],
-        errors="coerce"
-    )
-
-    df = df[
-        df["PULocationID"].between(1, 263)
-        & df["DOLocationID"].between(1, 263)
+        df["trip_distance"].notna()
     ]
 
     # =====================================================
@@ -130,7 +101,7 @@ for chunk_nr, df in enumerate(
 
     # Durchschnittsgeschwindigkeit mph
     df["Speed"] = (
-        df["Trip_distance"]
+        df["trip_distance"]
         / (df["Duration"] / 3600)
     )
 
