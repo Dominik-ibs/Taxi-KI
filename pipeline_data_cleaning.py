@@ -1,6 +1,8 @@
+import numpy as np
 import pandas as pd
 import sqlite3
 import os
+from sklearn.preprocessing import MinMaxScaler
 
 # ==========================
 # Konfiguration
@@ -123,9 +125,9 @@ for chunk_nr, df in enumerate(
     # 4. Datum aufspalten
     # =====================================================    
 
-    df["hour_of_day"] = df.tpep_pickup_datetime.dt.hour
+    df["time_of_day"] = df.tpep_pickup_datetime.dt.hour * 3600 + df.tpep_pickup_datetime.dt.minute * 60 + df.tpep_pickup_datetime.dt.second
     df["day_of_week"] = (df.tpep_pickup_datetime.dt.dayofweek + 1) % 7
-    df["month"] = df.tpep_pickup_datetime.dt.month
+    df["month"] = (df.tpep_pickup_datetime.dt.month - 1) % 12
 
     # =====================================================
     # 5. Datumszeilen entfernen
@@ -134,7 +136,18 @@ for chunk_nr, df in enumerate(
     df = df.drop(columns=["tpep_pickup_datetime", "tpep_dropoff_datetime", "Avg_Speed"])
 
     # =====================================================
-    # 6. Daten speichern
+    # 6. Daten Skalieren
+    # =====================================================
+
+    scaler = MinMaxScaler()
+    df[["trip_distance", "Duration"]] = scaler.fit_transform(df[["trip_distance", "Duration"]])
+
+    df["time_of_day"] = np.sin(2 * np.pi * df["time_of_day"] / 86400)
+    df["day_of_week_sin"] = np.sin(2 * np.pi * df["day_of_week"] / 7)
+    df["month_sin"] = np.sin(2 * np.pi * df["month"] / 12)
+
+    # =====================================================
+    # 7. Daten speichern
     # =====================================================
 
     df.to_sql(
