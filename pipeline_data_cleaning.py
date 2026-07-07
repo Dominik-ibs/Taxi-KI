@@ -16,7 +16,14 @@ CHUNKSIZE = 1_000_000
 # Zu behaltende Spalten
 # ==========================
 
-COLUMNS = "tpep_pickup_datetime, tpep_dropoff_datetime, trip_distance, pulocationid, dolocationid"
+COLUMNS = [
+    "tpep_pickup_datetime",
+    "tpep_dropoff_datetime",
+    "trip_distance",
+    "pulocationid",
+    "dolocationid",
+]
+
 WHERE = "trip_distance BETWEEN 0.1 and 40 and pulocationid BETWEEN 1 and 263 and dolocationid BETWEEN 1 and 263"
 
 # ==========================
@@ -53,7 +60,7 @@ mode = "replace"
 # Chunkweise Verarbeitung
 # ==========================
 
-query = f"SELECT {COLUMNS} FROM {TABLE} WHERE {WHERE}"
+query = f"SELECT {', '.join(COLUMNS)} FROM {TABLE} WHERE {WHERE}"
 
 for chunk_nr, df in enumerate(
     pd.read_sql_query(query, source_conn, parse_dates=PARSE_DATE_DICT, chunksize=CHUNKSIZE)
