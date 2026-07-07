@@ -13,24 +13,10 @@ TABLE = "tripdata"
 CHUNKSIZE = 1_000_000
 
 # ==========================
-# Zu entfernende Spalten
+# Zu behaltende Spalten
 # ==========================
 
-DROP_COLUMNS = [
-    "VendorID",
-    "Passenger_count",
-    "RatecodeID",
-    "Store_and_fwd_flag",
-    "Payment_type",
-    "Fare_amount",
-    "Extra",
-    "Mta_tax",
-    "Tip_amount",
-    "Tolls_amount",
-    "Improvement_surcharge",
-    "Total_amount",
-    "Congestion_surcharge",
-]
+COLUMNS = "tpep_pickup_datetime, tpep_dropoff_datetime, trip_distance, pulocationid, dolocationid"
 
 # ==========================
 # Datenbanken vorbereiten
@@ -55,7 +41,7 @@ mode = "replace"
 # Chunkweise Verarbeitung
 # ==========================
 
-query = f"SELECT * FROM {TABLE}"
+query = f"SELECT {COLUMNS} FROM {TABLE}"
 
 for chunk_nr, df in enumerate(
     pd.read_sql_query(query, source_conn, chunksize=CHUNKSIZE)
@@ -65,18 +51,7 @@ for chunk_nr, df in enumerate(
     rows_before += len(df)
 
     # =====================================================
-    # 1. Entfernte Spalten löschen
-    # =====================================================
-
-    existing_drop_columns = [
-        col for col in DROP_COLUMNS
-        if col in df.columns
-    ]
-
-    df.drop(columns=existing_drop_columns, inplace=True)
-
-    # =====================================================
-    # 2. Zeitspalten konvertieren
+    # 1. Zeitspalten konvertieren
     # =====================================================
 
     df["Pickup_time"] = pd.to_datetime(
@@ -109,7 +84,7 @@ for chunk_nr, df in enumerate(
     ]
 
     # =====================================================
-    # 3. Trip distance prüfen
+    # 2. Trip distance prüfen
     # =====================================================
 
     df["Trip_distance"] = pd.to_numeric(
@@ -127,7 +102,7 @@ for chunk_nr, df in enumerate(
     ]
 
     # =====================================================
-    # 4. PU / DO Location prüfen
+    # 3. PU / DO Location prüfen
     # =====================================================
 
     df["PULocationID"] = pd.to_numeric(
@@ -146,7 +121,7 @@ for chunk_nr, df in enumerate(
     ]
 
     # =====================================================
-    # 5. Feature Engineering
+    # 4. Feature Engineering
     # =====================================================
 
     df["Duration"] = (
@@ -173,7 +148,7 @@ for chunk_nr, df in enumerate(
     rows_after += len(df)
 
     # =====================================================
-    # 6. Daten speichern
+    # 5. Daten speichern
     # =====================================================
 
     df.to_sql(
