@@ -113,8 +113,8 @@ for chunk_nr, df in enumerate(
     )
 
     df = df[
-        (df["AVG_Speed"] >= 0.3)
-        & (df["AVG_Speed"] <= 60)
+        (df["Avg_Speed"] >= 0.3)
+        & (df["Avg_Speed"] <= 60)
     ]
 
     rows_after += len(df)
