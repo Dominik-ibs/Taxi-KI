@@ -60,7 +60,7 @@ mode = "replace"
 # Chunkweise Verarbeitung
 # ==========================
 
-query = f"SELECT {', '.join(COLUMNS)} FROM {TABLE} WHERE {WHERE}"
+query = f"SELECT {", ".join(COLUMNS)} FROM {TABLE} WHERE {WHERE}"
 
 for chunk_nr, df in enumerate(
     pd.read_sql_query(query, source_conn, parse_dates=PARSE_DATE_DICT, chunksize=CHUNKSIZE)
@@ -107,20 +107,34 @@ for chunk_nr, df in enumerate(
     ]
 
     # Durchschnittsgeschwindigkeit mph
-    df["Speed"] = (
+    df["Avg_Speed"] = (
         df["trip_distance"]
         / (df["Duration"] / 3600)
     )
 
     df = df[
-        (df["Speed"] >= 0.3)
-        & (df["Speed"] <= 60)
+        (df["AVG_Speed"] >= 0.3)
+        & (df["AVG_Speed"] <= 60)
     ]
 
     rows_after += len(df)
 
     # =====================================================
-    # 4. Daten speichern
+    # 4. Datum aufspalten
+    # =====================================================    
+
+    df["hour_of_day"] = df.tpep_pickup_datetime.dt.hour
+    df["day_of_week"] = (df.tpep_pickup_datetime.dt.dayofweek + 1) % 7
+    df["month"] = df.tpep_pickup_datetime.dt.month
+
+    # =====================================================
+    # 5. Datumszeilen entfernen
+    # =====================================================
+
+    df = df.drop(columns=["tpep_pickup_datetime", "tpep_dropoff_datetime", "Avg_Speed"], axis=1)
+
+    # =====================================================
+    # 6. Daten speichern
     # =====================================================
 
     df.to_sql(
