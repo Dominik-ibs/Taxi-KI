@@ -19,6 +19,18 @@ CHUNKSIZE = 1_000_000
 COLUMNS = "tpep_pickup_datetime, tpep_dropoff_datetime, trip_distance, pulocationid, dolocationid"
 
 # ==========================
+# Konvertieriung der Datetime-Einträge
+# ==========================
+
+DATE_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
+
+PARSE_DATE_DICT = {
+    "tpep_pickup_datetime":DATE_FORMAT,
+    "tpep_dropoff_datetime":DATE_FORMAT
+}
+
+
+# ==========================
 # Datenbanken vorbereiten
 # ==========================
 
@@ -44,7 +56,7 @@ mode = "replace"
 query = f"SELECT {COLUMNS} FROM {TABLE}"
 
 for chunk_nr, df in enumerate(
-    pd.read_sql_query(query, source_conn, chunksize=CHUNKSIZE)
+    pd.read_sql_query(query, source_conn, parse_dates=PARSE_DATE_DICT, chunksize=CHUNKSIZE)
 ):
     print(f"Verarbeite Chunk {chunk_nr:,}")
 
@@ -54,33 +66,15 @@ for chunk_nr, df in enumerate(
     # 1. Zeitspalten konvertieren
     # =====================================================
 
-    df["Pickup_time"] = pd.to_datetime(
-        df["Pickup_time"],
-        errors="coerce"
-    )
-
-    df["Dropoff_time"] = pd.to_datetime(
-        df["Dropoff_time"],
-        errors="coerce"
-    )
-
-    # keine NULL-Werte
-    df = df.dropna(
-        subset=[
-            "Pickup_time",
-            "Dropoff_time"
-        ]
-    )
-
     # innerhalb von 2019
     start_2019 = pd.Timestamp("2019-01-01")
     end_2019 = pd.Timestamp("2020-01-01")
 
     df = df[
-        (df["Pickup_time"] >= start_2019)
-        & (df["Pickup_time"] < end_2019)
-        & (df["Dropoff_time"] >= start_2019)
-        & (df["Dropoff_time"] < end_2019)
+        (df["tpep_pickup_datetime"] >= start_2019)
+        & (df["tpep_pickup_datetime"] < end_2019)
+        & (df["tpep_dropoff_datetime"] >= start_2019)
+        & (df["tpep_dropoff_datetime"] < end_2019)
     ]
 
     # =====================================================
@@ -125,7 +119,7 @@ for chunk_nr, df in enumerate(
     # =====================================================
 
     df["Duration"] = (
-        df["Dropoff_time"] - df["Pickup_time"]
+        df["tpep_dropoff_datetime"] - df["tpep_pickup_datetime"]
     ).dt.total_seconds()
 
     # 10 Sekunden bis 3 Stunden
