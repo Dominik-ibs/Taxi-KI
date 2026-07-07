@@ -6,7 +6,7 @@ import os
 # Konfiguration
 # ==========================
 
-SOURCE_DB_PATH = "database/raw/tripdata.sqlite"
+SOURCE_DB_PATH = "database/train.sqlite" # Muss später parametrisiert werden
 OUTPUT_DB_PATH = "database/cleaned.sqlite"
 
 TABLE = "tripdata"
@@ -17,6 +17,7 @@ CHUNKSIZE = 1_000_000
 # ==========================
 
 COLUMNS = "tpep_pickup_datetime, tpep_dropoff_datetime, trip_distance, pulocationid, dolocationid"
+WHERE = "trip_distance BETWEEN 0.1 and 40 and pulocationid BETWEEN 1 and 263 and dolocationid BETWEEN 1 and 263"
 
 # ==========================
 # Konvertieriung der Datetime-Einträge
@@ -28,7 +29,6 @@ PARSE_DATE_DICT = {
     "tpep_pickup_datetime":DATE_FORMAT,
     "tpep_dropoff_datetime":DATE_FORMAT
 }
-
 
 # ==========================
 # Datenbanken vorbereiten
@@ -53,7 +53,7 @@ mode = "replace"
 # Chunkweise Verarbeitung
 # ==========================
 
-query = f"SELECT {COLUMNS} FROM {TABLE} where trip_distance BETWEEN 0.1 and 40 and pulocationid BETWEEN 1 and 263 and dolocationid BETWEEN 1, 263"
+query = f"SELECT {COLUMNS} FROM {TABLE} WHERE {WHERE}"
 
 for chunk_nr, df in enumerate(
     pd.read_sql_query(query, source_conn, parse_dates=PARSE_DATE_DICT, chunksize=CHUNKSIZE)
@@ -63,7 +63,7 @@ for chunk_nr, df in enumerate(
     rows_before += len(df)
 
     # =====================================================
-    # 1. Zeitspalten konvertieren
+    # 1. Zeitspalten filtern
     # =====================================================
 
     # innerhalb von 2019
@@ -86,7 +86,7 @@ for chunk_nr, df in enumerate(
     ]
 
     # =====================================================
-    # 4. Feature Engineering
+    # 3. Feature Engineering
     # =====================================================
 
     df["Duration"] = (
@@ -113,7 +113,7 @@ for chunk_nr, df in enumerate(
     rows_after += len(df)
 
     # =====================================================
-    # 5. Daten speichern
+    # 4. Daten speichern
     # =====================================================
 
     df.to_sql(
