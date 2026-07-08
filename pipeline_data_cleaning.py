@@ -99,6 +99,39 @@ else:
     joblib.dump(scaler, SCALER_FILE)
     print("Scaler mit festen Min-/Max-Werten erstellt und gespeichert.")
 
+
+# Encoder laden oder erstellen
+
+ENCODER_COLUMNS = ["day_of_week", "month"]
+ENCODER_DIR = Path("encoders")
+ENCODER_DIR.mkdir(parents=True, exist_ok=True)
+
+ENCODER_FILE = ENCODER_DIR / "onehot_encoder.pkl"
+
+if ENCODER_FILE.exists():
+    encoder = joblib.load(ENCODER_FILE)
+    print("Encoder geladen.")
+else:
+    encoder = OneHotEncoder(
+        categories=[
+            [0, 1, 2, 3, 4, 5, 6],
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+        ],
+        sparse_output=False,
+        drop="first",
+        handle_unknown="ignore"
+    )
+
+    encoder_fit_data = pd.DataFrame({
+        "day_of_week": [0, 1, 2, 3, 4, 5, 6] * 12,
+        "month": sorted(list(range(12)) * 7)
+    })
+
+    encoder.fit(encoder_fit_data[ENCODER_COLUMNS])
+
+    joblib.dump(encoder, ENCODER_FILE)
+    print("Encoder erstellt und gespeichert.")
+
 # ==========================
 # Chunkweise Verarbeitung
 # ==========================
@@ -188,23 +221,21 @@ for chunk_nr, df in enumerate(
     # 7. One-Hot Encoding für Wochentage und Monate
     # =====================================================
 
-    encoder = OneHotEncoder(
-        categories=[
-            [0,1,2,3,4,5,6],
-            [0,1,2,3,4,5,6,7,8,9,10,11]
-        ],
-        sparse_output=False,
-        drop="first"
-    )
-    encoded_weekday = encoder.fit_transform(df[["day_of_week", "month"]])
+    encoded_values = encoder.transform(df[ENCODER_COLUMNS])
 
-    encoded_weekday_df = pd.DataFrame(
-        encoded_weekday,
-        columns=encoder.get_feature_names_out(["day_of_week", "month"]),
+    encoded_df = pd.DataFrame(
+        encoded_values,
+        columns=encoder.get_feature_names_out(ENCODER_COLUMNS),
         index=df.index
     )
 
-    df = pd.concat([df.drop(columns=["month", "day_of_week"]), encoded_weekday_df], axis=1)
+    df = pd.concat(
+        [
+            df.drop(columns=ENCODER_COLUMNS),
+            encoded_df
+        ],
+        axis=1
+    )
 
     # =====================================================
     # 8. Daten speichern
