@@ -3,17 +3,16 @@ import os
 import pandas as pd
 import sqlite3
 from sklearn.ensemble import HistGradientBoostingRegressor
-from pipeline_data_cleaning import clean_dataframe
 
 SOURCE_DB_PATH = "database/cleaned.sqlite"
 MODEL_PATH = "model/hgbrModel"
 
 TABLE = "tripdata"
-CHUNKSIZE = 1_000_000
+LIMIT = 5_000
 
 source_conn = sqlite3.connect(SOURCE_DB_PATH)
 
-QUERY = "SELECT * FROM tripdata"
+QUERY = f"SELECT * FROM tripdata ORDER BY RANDOM() LIMIT {LIMIT}"
 
 model = HistGradientBoostingRegressor(
     loss="squared_error",
@@ -24,20 +23,15 @@ model = HistGradientBoostingRegressor(
     early_stopping=True,
     validation_fraction=0.1,
     n_iter_no_change=20,
-    random_state=69
+    random_state=69,
+    verbose=1
 )
 
-for chunk_nr, features in enumerate(pd.read_sql_query(QUERY, source_conn, chunksize=CHUNKSIZE)):
-    print(f"cleaning chunk {chunk_nr}")
-    
-    features = clean_dataframe(features)
+features = pd.read_sql_query(QUERY, source_conn)
+targets = features["Duration"]
+features = features.drop(columns=["Duration"])
 
-    print(f"Training on chunk {chunk_nr}")
-
-    targets = features["Duration"]
-    features = features.drop(columns=["Duration"])
-
-    model.fit(features, targets)
+model.fit(features, targets)
  
 print(f"Training finished")
 
