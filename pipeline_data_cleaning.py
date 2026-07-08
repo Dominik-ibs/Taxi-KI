@@ -180,7 +180,6 @@ for chunk_nr, df in enumerate(
     # 6. Daten Skalieren
     # =====================================================
 
-    scaler = MinMaxScaler()
     df[["trip_distance", "Duration"]] = scaler.fit_transform(df[["trip_distance", "Duration"]])
 
     df["time_of_day"] = np.sin(2 * np.pi * df["time_of_day"] / 86400)
