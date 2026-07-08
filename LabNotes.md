@@ -91,7 +91,9 @@ Datenaufbereitung wird hauptsächlich in [pipeline_data_cleaning.py](pipeline_da
 # Modelltraining
 
 Modelltraining wird in [pipeline_model_trainer.py](pipeline_model_trainer.py) ausgeführt.
+Für den Random Forest wird [pipeline_random_forest_trainer.py](pipeline_random_forest_trainer.py) ausgeführt.
 
 # Modellbewertung
 
 Die Bewertung des Modells passiert in [pipeline_model_evaluator](pipeline_model_evaluator.py).
+Die Bewertung des Random Forest Modells passiert in [pipeline_random_forest_evaluator](pipeline_random_forest_evaluator.py).

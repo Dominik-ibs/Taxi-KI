@@ -5,7 +5,7 @@ from sklearn.metrics import mean_absolute_error, root_mean_squared_error, r2_sco
 import taxi_scaler
 
 SOURCE_DB_PATH = "database/clean_test.sqlite"
-MODEL_PATH = "model/hgbrModel"
+MODEL_PATH = "model/randomForestModel"
 
 model = joblib.load(MODEL_PATH)
 
