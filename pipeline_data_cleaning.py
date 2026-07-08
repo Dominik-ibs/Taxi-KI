@@ -1,3 +1,6 @@
+from pathlib import Path
+
+import joblib
 import numpy as np
 import pandas as pd
 import sqlite3
@@ -57,6 +60,44 @@ target_conn.execute("PRAGMA temp_store=MEMORY")
 rows_before = 0
 rows_after = 0
 mode = "replace"
+
+# ==========================
+# Speichern des Min Max Scalers
+# ==========================
+
+SCALER_DIR = Path("scalers")
+SCALER_DIR.mkdir(parents=True, exist_ok=True)
+
+SCALER_FILE = SCALER_DIR / "minmax_scaler.pkl"
+
+SCALER_COLUMNS = ["trip_distance", "Duration"]
+
+FIXED_MIN_VALUES = {
+    "trip_distance": 0,
+    "Duration": 10
+}
+
+FIXED_MAX_VALUES = {
+    "trip_distance": 100,
+    "Duration": 10800
+}
+
+
+if os.path.exists(SCALER_FILE):
+    scaler = joblib.load(SCALER_FILE)
+    print("Scaler geladen.")
+else:
+    scaler = MinMaxScaler()
+
+    fixed_scaler_data = pd.DataFrame([
+        FIXED_MIN_VALUES,
+        FIXED_MAX_VALUES
+    ])
+
+    scaler.fit(fixed_scaler_data[SCALER_COLUMNS])
+
+    joblib.dump(scaler, SCALER_FILE)
+    print("Scaler mit festen Min-/Max-Werten erstellt und gespeichert.")
 
 # ==========================
 # Chunkweise Verarbeitung
