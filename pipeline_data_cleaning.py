@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import sqlite3
 import os
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 
 # ==========================
 # Konfiguration
@@ -126,8 +126,8 @@ for chunk_nr, df in enumerate(
     # =====================================================    
 
     df["time_of_day"] = df.tpep_pickup_datetime.dt.hour * 3600 + df.tpep_pickup_datetime.dt.minute * 60 + df.tpep_pickup_datetime.dt.second
-    df["day_of_week"] = (df.tpep_pickup_datetime.dt.dayofweek + 1) % 7
-    df["month"] = (df.tpep_pickup_datetime.dt.month - 1) % 12
+    df["day_of_week"] = df.tpep_pickup_datetime.dt.dayofweek % 7
+    df["month"] = df.tpep_pickup_datetime.dt.month % 12
 
     # =====================================================
     # 5. Datumszeilen entfernen
@@ -143,11 +143,31 @@ for chunk_nr, df in enumerate(
     df[["trip_distance", "Duration"]] = scaler.fit_transform(df[["trip_distance", "Duration"]])
 
     df["time_of_day"] = np.sin(2 * np.pi * df["time_of_day"] / 86400)
-    df["day_of_week"] = np.sin(2 * np.pi * df["day_of_week"] / 7)
-    df["month"] = np.sin(2 * np.pi * df["month"] / 12)
 
     # =====================================================
-    # 7. Daten speichern
+    # 7. One-Hot Encoding für Wochentage und Monate
+    # =====================================================
+
+    encoder = OneHotEncoder(
+        categories=[
+            [0,1,2,3,4,5,6],
+            [0,1,2,3,4,5,6,7,8,9,10,11]
+        ],
+        sparse_output=False,
+        drop="first"
+    )
+    encoded_weekday = encoder.fit_transform(df[["day_of_week", "month"]])
+
+    encoded_weekday_df = pd.DataFrame(
+        encoded_weekday,
+        columns=encoder.get_feature_names_out(["day_of_week", "month"]),
+        index=df.index
+    )
+
+    df = pd.concat([df.drop(columns=["month", "day_of_week"]), encoded_weekday_df], axis=1)
+
+    # =====================================================
+    # 8. Daten speichern
     # =====================================================
 
     df.to_sql(
