@@ -1,5 +1,5 @@
 # Eigene Erweiterungen
-*.sqlite
+*.sqlite*
 *.dbf
 *.prj
 *.sbn
@@ -9,6 +9,8 @@
 *.shx
 *.pdf
 *.csv
+encoders/
+scalers/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
