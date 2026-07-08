@@ -4,15 +4,17 @@ import pandas as pd
 import sqlite3
 from sklearn.ensemble import HistGradientBoostingRegressor
 
-SOURCE_DB_PATH = "database/cleaned.sqlite"
+SOURCE_DB_PATH = "database/clean_train.sqlite"
 MODEL_PATH = "model/hgbrModel"
+SAMPLE_HASH = 2654435761
 
-TABLE = "tripdata"
-LIMIT = 5_000
+# 67 Million rows incur a RAM usage of around 70 GB
+# Use this divider to reduce the RAM usage by randomly sampling
+SAMPLE_DIVIDER = 5
+
+QUERY = f"SELECT * FROM tripdata WHERE ABS(rowid * {SAMPLE_HASH}) % {SAMPLE_DIVIDER} = 0"
 
 source_conn = sqlite3.connect(SOURCE_DB_PATH)
-
-QUERY = f"SELECT * FROM tripdata ORDER BY RANDOM() LIMIT {LIMIT}"
 
 model = HistGradientBoostingRegressor(
     loss="squared_error",
@@ -30,6 +32,9 @@ model = HistGradientBoostingRegressor(
 features = pd.read_sql_query(QUERY, source_conn)
 targets = features["Duration"]
 features = features.drop(columns=["Duration"])
+
+print(features.describe())
+print(targets.describe())
 
 model.fit(features, targets)
  
