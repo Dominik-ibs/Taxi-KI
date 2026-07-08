@@ -1,15 +1,16 @@
+import taxi_encoder
 import numpy as np
 import pandas as pd
 import sqlite3
 import os
-from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
+import taxi_scaler, taxi_encoder
 
 # ==========================
 # Konfiguration
 # ==========================
 
-SOURCE_DB_PATH = "database/train.sqlite" # Muss später parametrisiert werden
-OUTPUT_DB_PATH = "database/cleaned.sqlite"
+SOURCE_TRAIN_DB = "train.sqlite" # Muss später parametrisiert werden
+SOURCE_TEST_DB = "test.sqlite" # Muss später parametrisiert werden
 
 TABLE = "tripdata"
 CHUNKSIZE = 1_000_000
@@ -40,161 +41,165 @@ PARSE_DATE_DICT = {
 }
 
 # ==========================
-# Datenbanken vorbereiten
-# ==========================
-
-if os.path.exists(OUTPUT_DB_PATH):
-    os.remove(OUTPUT_DB_PATH)
-
-source_conn = sqlite3.connect(SOURCE_DB_PATH)
-
-target_conn = sqlite3.connect(OUTPUT_DB_PATH)
-target_conn.execute("PRAGMA journal_mode=WAL")
-target_conn.execute("PRAGMA synchronous=OFF")
-target_conn.execute("PRAGMA cache_size=100000")
-target_conn.execute("PRAGMA temp_store=MEMORY")
-
-rows_before = 0
-rows_after = 0
-mode = "replace"
-
-# ==========================
 # Chunkweise Verarbeitung
 # ==========================
 
 query = f"SELECT {", ".join(COLUMNS)} FROM {TABLE} WHERE {WHERE}"
 
-for chunk_nr, df in enumerate(
-    pd.read_sql_query(query, source_conn, parse_dates=PARSE_DATE_DICT, chunksize=CHUNKSIZE)
-):
-    print(f"Verarbeite Chunk {chunk_nr:,}")
+for db in [SOURCE_TRAIN_DB, SOURCE_TEST_DB]:
+    rows_before = 0
+    rows_after = 0
+    mode = "replace"
 
-    rows_before += len(df)
+    source_db_path = f"database/{db}"
+    target_db_path = f"database/clean_{db}"
 
-    # =====================================================
-    # 1. Zeitspalten filtern
-    # =====================================================
+    if os.path.exists(target_db_path):
+        os.remove(target_db_path)
 
-    # innerhalb von 2019
-    start_2019 = pd.Timestamp("2019-01-01")
-    end_2019 = pd.Timestamp("2020-01-01")
+    source_conn = sqlite3.connect(source_db_path)
 
-    df = df[
-        (df["tpep_pickup_datetime"] >= start_2019)
-        & (df["tpep_pickup_datetime"] < end_2019)
-        & (df["tpep_dropoff_datetime"] >= start_2019)
-        & (df["tpep_dropoff_datetime"] < end_2019)
-    ]
+    target_conn = sqlite3.connect(target_db_path)
+    target_conn.execute("PRAGMA journal_mode=WAL")
+    target_conn.execute("PRAGMA synchronous=OFF")
+    target_conn.execute("PRAGMA cache_size=100000")
+    target_conn.execute("PRAGMA temp_store=MEMORY")
 
-    # =====================================================
-    # 2. Trip distance prüfen
-    # =====================================================
+    for chunk_nr, df in enumerate(
+        pd.read_sql_query(query, source_conn, parse_dates=PARSE_DATE_DICT, chunksize=CHUNKSIZE)
+    ):
+        print(f"Verarbeite Chunk {chunk_nr:,}")
 
-    df = df[
-        df["trip_distance"].notna()
-    ]
+        rows_before += len(df)
 
-    # =====================================================
-    # 3. Feature Engineering
-    # =====================================================
+        # =====================================================
+        # 1. Zeitspalten filtern
+        # =====================================================
 
-    df["Duration"] = (
-        df["tpep_dropoff_datetime"] - df["tpep_pickup_datetime"]
-    ).dt.total_seconds()
+        # innerhalb von 2019
+        start_2019 = pd.Timestamp("2019-01-01")
+        end_2019 = pd.Timestamp("2020-01-01")
 
-    # 10 Sekunden bis 3 Stunden
-    df = df[
-        (df["Duration"] > 10)
-        & (df["Duration"] <= 10800)
-    ]
+        df = df[
+            (df["tpep_pickup_datetime"] >= start_2019)
+            & (df["tpep_pickup_datetime"] < end_2019)
+            & (df["tpep_dropoff_datetime"] >= start_2019)
+            & (df["tpep_dropoff_datetime"] < end_2019)
+        ]
 
-    # Durchschnittsgeschwindigkeit mph
-    df["Avg_Speed"] = (
-        df["trip_distance"]
-        / (df["Duration"] / 3600)
-    )
+        # =====================================================
+        # 2. Trip distance prüfen
+        # =====================================================
 
-    df = df[
-        (df["Avg_Speed"] >= 0.3)
-        & (df["Avg_Speed"] <= 60)
-    ]
+        df = df[
+            df["trip_distance"].notna()
+        ]
 
-    rows_after += len(df)
+        # =====================================================
+        # 3. Feature Engineering
+        # =====================================================
 
-    # =====================================================
-    # 4. Datum aufspalten
-    # =====================================================    
+        df["Duration"] = (
+            df["tpep_dropoff_datetime"] - df["tpep_pickup_datetime"]
+        ).dt.total_seconds()
 
-    df["time_of_day"] = df.tpep_pickup_datetime.dt.hour * 3600 + df.tpep_pickup_datetime.dt.minute * 60 + df.tpep_pickup_datetime.dt.second
-    df["day_of_week"] = df.tpep_pickup_datetime.dt.dayofweek % 7
-    df["month"] = df.tpep_pickup_datetime.dt.month % 12
+        # 10 Sekunden bis 3 Stunden
+        df = df[
+            (df["Duration"] > 10)
+            & (df["Duration"] <= 10800)
+        ]
 
-    # =====================================================
-    # 5. Datumszeilen entfernen
-    # =====================================================
+        # Durchschnittsgeschwindigkeit mph
+        df["Avg_Speed"] = (
+            df["trip_distance"]
+            / (df["Duration"] / 3600)
+        )
 
-    df = df.drop(columns=["tpep_pickup_datetime", "tpep_dropoff_datetime", "Avg_Speed"])
+        df = df[
+            (df["Avg_Speed"] >= 0.3)
+            & (df["Avg_Speed"] <= 60)
+        ]
 
-    # =====================================================
-    # 6. Daten Skalieren
-    # =====================================================
+        rows_after += len(df)
 
-    scaler = MinMaxScaler()
-    df[["trip_distance", "Duration"]] = scaler.fit_transform(df[["trip_distance", "Duration"]])
+        # =====================================================
+        # 4. Datum aufspalten
+        # =====================================================    
 
-    df["time_of_day"] = np.sin(2 * np.pi * df["time_of_day"] / 86400)
+        df["time_of_day"] = df.tpep_pickup_datetime.dt.hour * 3600 + df.tpep_pickup_datetime.dt.minute * 60 + df.tpep_pickup_datetime.dt.second
+        df["day_of_week"] = df.tpep_pickup_datetime.dt.dayofweek % 7
+        df["month"] = df.tpep_pickup_datetime.dt.month % 12
 
-    # =====================================================
-    # 7. One-Hot Encoding für Wochentage und Monate
-    # =====================================================
+        # =====================================================
+        # 5. Datumszeilen entfernen
+        # =====================================================
 
-    encoder = OneHotEncoder(
-        categories=[
-            [0,1,2,3,4,5,6],
-            [0,1,2,3,4,5,6,7,8,9,10,11]
-        ],
-        sparse_output=False,
-        drop="first"
-    )
-    encoded_weekday = encoder.fit_transform(df[["day_of_week", "month"]])
+        df = df.drop(columns=["tpep_pickup_datetime", "tpep_dropoff_datetime", "Avg_Speed"])
 
-    encoded_weekday_df = pd.DataFrame(
-        encoded_weekday,
-        columns=encoder.get_feature_names_out(["day_of_week", "month"]),
-        index=df.index
-    )
+        # =====================================================
+        # 6. Daten Skalieren
+        # =====================================================
 
-    df = pd.concat([df.drop(columns=["month", "day_of_week"]), encoded_weekday_df], axis=1)
+        distance_scaler = taxi_scaler.load_distance_scaler()
+        duration_scaler = taxi_scaler.load_duration_scaler()
 
-    # =====================================================
-    # 8. Daten speichern
-    # =====================================================
+        df[["trip_distance"]] = distance_scaler.transform(df[["trip_distance"]])
+        df[["Duration"]] = duration_scaler.transform(df[["Duration"]])
 
-    df.to_sql(
-        TABLE,
-        target_conn,
-        if_exists=mode,
-        index=False
-    )
+        df["time_of_day"] = np.sin(2 * np.pi * df["time_of_day"] / 86400)
 
-    mode = "append"
+        # =====================================================
+        # 7. One-Hot Encoding für Wochentage und Monate
+        # =====================================================
 
-    print(
-        f"Chunk {chunk_nr:,}: "
-        f"{len(df):,} Zeilen gespeichert"
-    )
+        encoder = taxi_encoder.load_encoder()
+        ENCODER_COLUMNS = taxi_encoder.get_encoder_cols()
 
-# ==========================
-# Abschluss
-# ==========================
+        encoded_values = encoder.transform(df[ENCODER_COLUMNS])
 
-source_conn.close()
-target_conn.close()
+        encoded_df = pd.DataFrame(
+            encoded_values,
+            columns=encoder.get_feature_names_out(ENCODER_COLUMNS),
+            index=df.index
+        )
 
-removed = rows_before - rows_after
+        df = pd.concat(
+            [
+                df.drop(columns=ENCODER_COLUMNS),
+                encoded_df
+            ],
+            axis=1
+        )
 
-print("\n===== Statistik =====")
-print(f"Ursprüngliche Zeilen: {rows_before:,}")
-print(f"Verbleibende Zeilen:  {rows_after:,}")
-print(f"Entfernte Zeilen:     {removed:,}")
-print(f"Entfernungsrate:      {removed / rows_before:.2%}")
+        # =====================================================
+        # 8. Daten speichern
+        # =====================================================
+
+        df.to_sql(
+            TABLE,
+            target_conn,
+            if_exists=mode,
+            index=False
+        )
+
+        mode = "append"
+
+        print(
+            f"Chunk {chunk_nr:,}: "
+            f"{len(df):,} Zeilen gespeichert"
+        )
+    
+    # ==========================
+    # Abschluss
+    # ==========================
+
+    source_conn.close()
+    target_conn.close()
+
+    removed = rows_before - rows_after
+
+    print("\n===== Statistik =====")
+    print(f"Ursprüngliche Zeilen: {rows_before:,}")
+    print(f"Verbleibende Zeilen:  {rows_after:,}")
+    print(f"Entfernte Zeilen:     {removed:,}")
+    print(f"Entfernungsrate:      {removed / rows_before:.2%}")
