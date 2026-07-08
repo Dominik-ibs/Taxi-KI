@@ -94,4 +94,4 @@ Modelltraining wird in [pipeline_model_trainer.py](pipeline_model_trainer.py) au
 
 # Modellbewertung
 
-Die Bewertung des Modells passiert in [ranking_model.py](ranking_model.py).
+Die Bewertung des Modells passiert in [pipeline_model_evaluator](pipeline_model_evaluator.py).
